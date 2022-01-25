@@ -158,6 +158,9 @@ class NeedlemanWunsch:
         self._gapA_matrix[0, :] = iscore
         self._gapB_matrix[:, 0] = jscore
 
+        self._back_B[0, :] = np.inf
+        self._back_A[:, 0] = np.inf
+
         for i in range(1, len_seqA + 1):
             for j in range(1, len_seqB + 1):
                 seq_substitution = (seqA[i - 1], seqB[j - 1])
@@ -171,7 +174,7 @@ class NeedlemanWunsch:
         return self._backtrace()
 
     def _update_gap(self, which, i, j):
-        if which == "a":
+        if which == "b":
             matrix = self._gapB_matrix
             gap = matrix[i - 1, j]
             align = self._align_matrix[i - 1, j]
@@ -194,12 +197,14 @@ class NeedlemanWunsch:
         self._align_matrix[i, j] = max(neighbor_values)
 
         argmax = np.argmax(neighbor_values)
+        print("amax", argmax, i, j)
         if argmax == 0:
-            self._back[i, j] = m
+            self._back[i - 1, j - 1] = m
         elif argmax == 1:
-            self._back_A[i, j] = iy
+            self._back_A[i - 1, j] = ix
         else:
-            self._back_B[i, j] = ix
+            print("did t his")
+            self._back_B[i, j - 1] = iy
 
     def _backtrace(self) -> Tuple[float, str, str]:
         """
@@ -212,29 +217,9 @@ class NeedlemanWunsch:
         seqB = self._seqB
         j, i = len(seqB), len(seqA)
 
-        print(i, j)
         alignment_score = self._align_matrix[-1, -1]
         seqA_align = ""
         seqB_align = ""
-
-        # position_scores = [
-        # matrix[i, j] for matrix in (self._back, self._back_A, self._back_B)
-        # ]
-        # argmax = np.argmax(position_scores)
-
-        # if argmax == 0:
-        # seqA_align += seqA[i - 1]
-        # seqB_align += seqB[j - 1]
-        # i -= 1
-        # j -= 1
-        # if argmax == 1:
-        # seqA_align += seqA[i - 1]
-        # seqB_align += "-"
-        # j -= 1
-        # if argmax == 2:
-        # seqA_align += "-"
-        # seqB_align += seqB[j - 1]
-        # i -= 1
 
         while i > 0 or j > 0:
             print(i, j)
@@ -260,17 +245,6 @@ class NeedlemanWunsch:
                 seqA_align += "-"
                 seqB_align += seqB[j - 1]
                 j -= 1
-
-            print(
-                argmax,
-                [i, j],
-                [_i, _j],
-                position_scores,
-                "".join(reversed(seqA_align)),
-                "".join(reversed(seqB_align)),
-            )
-            print(position_scores)
-            print("")
 
         seqA_align = "".join(reversed(seqA_align))
         seqB_align = "".join(reversed(seqB_align))
