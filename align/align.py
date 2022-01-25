@@ -1,10 +1,11 @@
 # Importing Dependencies
+from re import A
 import numpy as np
 from typing import Tuple
 
 # Defining class for Needleman-Wunsch Algorithm for Global pairwise alignment
 class NeedlemanWunsch:
-    """ Class for NeedlemanWunsch Alignment
+    """Class for NeedlemanWunsch Alignment
 
     Parameters:
         sub_matrix_file: str
@@ -26,6 +27,7 @@ class NeedlemanWunsch:
         gap_extend: float
             Gap extension penalty
     """
+
     def __init__(self, sub_matrix_file: str, gap_open: float, gap_extend: float):
         # Init alignment and gap matrices
         self._align_matrix = None
@@ -55,7 +57,9 @@ class NeedlemanWunsch:
         assert gap_extend < 0, "Gap extension penalty must be negative."
 
         # Generating substitution matrix
-        self.sub_dict = self._read_sub_matrix(sub_matrix_file) # substitution dictionary
+        self.sub_dict = self._read_sub_matrix(
+            sub_matrix_file
+        )  # substitution dictionary
 
     def _read_sub_matrix(self, sub_matrix_file):
         """
@@ -75,7 +79,7 @@ class NeedlemanWunsch:
                 Substitution matrix dictionary with tuple of the two residues as
                 the key and score as value e.g. {('A', 'A'): 4} or {('A', 'D'): -8}
         """
-        with open(sub_matrix_file, 'r') as f:
+        with open(sub_matrix_file, "r") as f:
             dict_sub = {}  # Dictionary for storing scores from sub matrix
             residue_list = []  # For storing residue list
             start = False  # trigger for reading in score values
@@ -83,16 +87,22 @@ class NeedlemanWunsch:
             # reading file line by line
             for line_num, line in enumerate(f):
                 # Reading in residue list
-                if '#' not in line.strip() and start is False:
-                    residue_list = [k for k in line.strip().upper().split(' ') if k != '']
+                if "#" not in line.strip() and start is False:
+                    residue_list = [
+                        k for k in line.strip().upper().split(" ") if k != ""
+                    ]
                     start = True
                 # Generating substitution scoring dictionary
                 elif start is True and res_2 < len(residue_list):
-                    line = [k for k in line.strip().split(' ') if k != '']
+                    line = [k for k in line.strip().split(" ") if k != ""]
                     # reading in line by line to create substitution dictionary
-                    assert len(residue_list) == len(line), "Score line should be same length as residue list"
+                    assert len(residue_list) == len(
+                        line
+                    ), "Score line should be same length as residue list"
                     for res_1 in range(len(line)):
-                        dict_sub[(residue_list[res_1], residue_list[res_2])] = float(line[res_1])
+                        dict_sub[(residue_list[res_1], residue_list[res_2])] = float(
+                            line[res_1]
+                        )
                     res_2 += 1
                 elif start is True and res_2 == len(residue_list):
                     break
@@ -110,9 +120,13 @@ class NeedlemanWunsch:
         """
         # Initialize 6 matrix private attributes for use in alignment
         # create matrices for alignment scores and gaps
-        self._align_matrix = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf
-        self._gapA_matrix = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf
-        self._gapB_matrix = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf
+
+        seqA = seqA[0]
+        seqB = seqB[0]
+
+        self._align_matrix = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf  # match
+        self._gapA_matrix = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf  # ix
+        self._gapB_matrix = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf  # iy
 
         # create matrices for pointers used in backtrace procedure
         self._back = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf
@@ -130,10 +144,62 @@ class NeedlemanWunsch:
         self._seqA = seqA
         self._seqB = seqB
 
-        # TODO Implement the global sequence alignment here
-        pass
+        len_seqA = len(seqA)
+        len_seqB = len(seqB)
+
+        # initialize the align, gapA, and gapB matrices with the correct column/row values
+        iscore = np.arange(len_seqB + 1) * self.gap_extend + self.gap_open
+        jscore = np.arange(len_seqA + 1) * self.gap_extend + self.gap_open
+
+        # self._align_matrix[0, :] = iscore
+        # self._align_matrix[:, 0] = jscore
+        self._align_matrix[0, 0] = 0
+
+        self._gapA_matrix[0, :] = iscore
+        self._gapB_matrix[:, 0] = jscore
+
+        for i in range(1, len_seqA + 1):
+            for j in range(1, len_seqB + 1):
+                seq_substitution = (seqA[i - 1], seqB[j - 1])
+                score = self.sub_dict[seq_substitution]
+
+                self._update_gap("a", i, j)
+                self._update_gap("b", i, j)
+                self._update_align_matrix(i, j, score)
+                # self._update_back(i, j)
 
         return self._backtrace()
+
+    def _update_gap(self, which, i, j):
+        if which == "a":
+            matrix = self._gapB_matrix
+            gap = matrix[i - 1, j]
+            align = self._align_matrix[i - 1, j]
+
+        else:
+            matrix = self._gapA_matrix
+            gap = matrix[i, j - 1]
+            align = self._align_matrix[i, j - 1]
+
+        matrix[i, j] = max(
+            gap + self.gap_extend, align + self.gap_open + self.gap_extend
+        )
+
+    def _update_align_matrix(self, i, j, score):
+        m = self._align_matrix[i - 1, j - 1] + score
+        iy = self._gapA_matrix[i - 1, j - 1] + score
+        ix = self._gapB_matrix[i - 1, j - 1] + score
+        neighbor_values = (m, ix, iy)
+
+        self._align_matrix[i, j] = max(neighbor_values)
+
+        argmax = np.argmax(neighbor_values)
+        if argmax == 0:
+            self._back[i, j] = m
+        elif argmax == 1:
+            self._back_A[i, j] = iy
+        else:
+            self._back_B[i, j] = ix
 
     def _backtrace(self) -> Tuple[float, str, str]:
         """
@@ -142,8 +208,73 @@ class NeedlemanWunsch:
         The traceback method should return a tuple of the alignment
         score, the seqA alignment and the seqB alignment respectively.
         """
-        # Implement this method based upon the heuristic chosen in the align method above.
-        pass
+        seqA = self._seqA
+        seqB = self._seqB
+        j, i = len(seqB), len(seqA)
+
+        print(i, j)
+        alignment_score = self._align_matrix[-1, -1]
+        seqA_align = ""
+        seqB_align = ""
+
+        # position_scores = [
+        # matrix[i, j] for matrix in (self._back, self._back_A, self._back_B)
+        # ]
+        # argmax = np.argmax(position_scores)
+
+        # if argmax == 0:
+        # seqA_align += seqA[i - 1]
+        # seqB_align += seqB[j - 1]
+        # i -= 1
+        # j -= 1
+        # if argmax == 1:
+        # seqA_align += seqA[i - 1]
+        # seqB_align += "-"
+        # j -= 1
+        # if argmax == 2:
+        # seqA_align += "-"
+        # seqB_align += seqB[j - 1]
+        # i -= 1
+
+        while i > 0 or j > 0:
+            print(i, j)
+            position_scores = [
+                matrix[i, j]
+                for matrix in (self._align_matrix, self._gapB_matrix, self._gapA_matrix)
+            ]
+            argmax = np.argmax(position_scores)
+
+            _i, _j = i, j
+            if argmax == 0:
+                seqA_align += seqA[i - 1]
+                seqB_align += seqB[j - 1]
+                i -= 1
+                j -= 1
+
+            elif argmax == 1:  # extend gap in B
+                seqA_align += seqA[i - 1]
+                seqB_align += "-"
+                i -= 1
+
+            elif argmax == 2:  # extend gap in A
+                seqA_align += "-"
+                seqB_align += seqB[j - 1]
+                j -= 1
+
+            print(
+                argmax,
+                [i, j],
+                [_i, _j],
+                position_scores,
+                "".join(reversed(seqA_align)),
+                "".join(reversed(seqB_align)),
+            )
+            print(position_scores)
+            print("")
+
+        seqA_align = "".join(reversed(seqA_align))
+        seqB_align = "".join(reversed(seqB_align))
+        return (alignment_score, seqA_align, seqB_align)
 
 
 def read_fasta(fasta_file: str) -> Tuple[str, str]:
@@ -167,7 +298,9 @@ def read_fasta(fasta_file: str) -> Tuple[str, str]:
         header: str
             Fasta header
     """
-    assert fasta_file.endswith(".fa"), "Fasta file must be a fasta file with the suffix .fa"
+    assert fasta_file.endswith(
+        ".fa"
+    ), "Fasta file must be a fasta file with the suffix .fa"
     with open(fasta_file) as f:
         seq = ""  # initializing sequence
         first_header = True
