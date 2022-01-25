@@ -224,8 +224,7 @@ class NeedlemanWunsch:
         while i > 0 or j > 0:
             print(i, j)
             position_scores = [
-                matrix[i, j]
-                for matrix in (self._align_matrix, self._gapB_matrix, self._gapA_matrix)
+                matrix[i, j] for matrix in (self._back, self._back_A, self._back_B)
             ]
             argmax = np.argmax(position_scores)
 
