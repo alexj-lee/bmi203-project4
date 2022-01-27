@@ -124,7 +124,7 @@ class NeedlemanWunsch:
         # Initialize 6 matrix private attributes for use in alignment
         # create matrices for alignment scores and gaps
 
-        seqA = seqA[0]
+        seqA = seqA[0]  # easier bookkeeping if we dump the header
         seqB = seqB[0]
 
         self._align_matrix = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf  # match
@@ -133,8 +133,6 @@ class NeedlemanWunsch:
 
         # create matrices for pointers used in backtrace procedure
         self._back = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf
-        #        self._back_A = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf
-        #        self._back_B = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf
 
         # Resetting alignment in case method is called more than once
         self.seqA_align = ""
@@ -159,21 +157,26 @@ class NeedlemanWunsch:
         self._gapA_matrix[0, :] = iscore
         self._gapB_matrix[:, 0] = jscore
 
-        #        self._back_B[0, :] = np.inf
-        #        self._back_A[:, 0] = np.inf
+        # also put in the top row as infinites so that the traceback knows if we hit the top to keep going left and if we hit the left column we keep going up
         self._back[0, :] = np.inf
         self._back[:, 0] = np.inf
 
         for i in range(1, len_seqA + 1):
             for j in range(1, len_seqB + 1):
-                seq_substitution = (seqA[i - 1], seqB[j - 1])
+                seq_substitution = (
+                    seqA[i - 1],
+                    seqB[j - 1],
+                )  # will be tuple of (char, char)
                 score = self.sub_dict[seq_substitution]
 
+                # update the gap matrices
                 self._update_gap("a", i, j)
                 self._update_gap("b", i, j)
-                self._update_align_matrix(i, j, score)
+                self._update_align_matrix(i, j, score)  # update alignment score section
 
-        return self._backtrace()
+        return (
+            self._backtrace()
+        )  # backtrace returns a tuple of (score, alignmentA, alignmentB)
 
     def _update_gap(self, which: str, i: int, j: int):
         """
@@ -215,7 +218,9 @@ class NeedlemanWunsch:
         ix = self._gapB_matrix[i - 1, j - 1]
         neighbor_values = (m, ix, iy)
 
-        argmax = np.argmax(neighbor_values)
+        argmax = np.argmax(
+            neighbor_values
+        )  # whether to take the match or gap (gap is !0)
 
         self._align_matrix[i, j] = neighbor_values[argmax] + score
 
