@@ -169,7 +169,6 @@ class NeedlemanWunsch:
                 self._update_gap("a", i, j)
                 self._update_gap("b", i, j)
                 self._update_align_matrix(i, j, score)
-                # self._update_back(i, j)
 
         return self._backtrace()
 
@@ -178,7 +177,6 @@ class NeedlemanWunsch:
             matrix = self._gapB_matrix
             gap = matrix[i - 1, j]
             align = self._align_matrix[i - 1, j]
-
         else:
             matrix = self._gapA_matrix
             gap = matrix[i, j - 1]
@@ -189,22 +187,21 @@ class NeedlemanWunsch:
         )
 
     def _update_align_matrix(self, i, j, score):
-        m = self._align_matrix[i - 1, j - 1] + score
-        iy = self._gapA_matrix[i - 1, j - 1] + score
-        ix = self._gapB_matrix[i - 1, j - 1] + score
+        m = self._align_matrix[i - 1, j - 1]
+        iy = self._gapA_matrix[i - 1, j - 1]
+        ix = self._gapB_matrix[i - 1, j - 1]
         neighbor_values = (m, ix, iy)
 
-        self._align_matrix[i, j] = max(neighbor_values)
+        self._align_matrix[i, j] = max(neighbor_values) + score
 
         argmax = np.argmax(neighbor_values)
-        print("amax", argmax, i, j)
-        if argmax == 0:
-            self._back[i - 1, j - 1] = m
-        elif argmax == 1:
-            self._back_A[i - 1, j] = ix
-        else:
-            print("did t his")
-            self._back_B[i, j - 1] = iy
+
+    #        if argmax == 0:
+    #            self._back[i - 1, j - 1] = m
+    #        elif argmax == 1:
+    #            self._back_A[i - 1, j] = ix
+    #        else:
+    #            self._back_B[i, j - 1] = iy
 
     def _backtrace(self) -> Tuple[float, str, str]:
         """
@@ -222,7 +219,6 @@ class NeedlemanWunsch:
         seqB_align = ""
 
         while i > 0 or j > 0:
-            print(i, j)
             position_scores = [
                 matrix[i, j] for matrix in (self._back, self._back_A, self._back_B)
             ]
@@ -245,8 +241,8 @@ class NeedlemanWunsch:
                 seqB_align += seqB[j - 1]
                 j -= 1
 
-        seqA_align = "".join(reversed(seqA_align))
-        seqB_align = "".join(reversed(seqB_align))
+        seqA_align = seqA_align[::-1]
+        seqB_align = seqB_align[::-1]
         return (alignment_score, seqA_align, seqB_align)
 
 
