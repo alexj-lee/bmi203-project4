@@ -1,3 +1,4 @@
+![BuildStatus](https://github.com/alexj-lee/bmi203-project4/actions/workflows/test.yml/badge.svg)
 # Project 4
 Needleman Wunsch Algorithm
 
