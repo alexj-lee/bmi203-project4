@@ -21,7 +21,12 @@ def main():
         (tt_seq, tt_header),
     )
 
-    species_names = ("Chicken", "Mouse", "Stork", "Dolphin")
+    species_names = (
+        "Chicken (gallus)",
+        "Mouse (mus)",
+        "Stork (baeleniceps)",
+        "Dolphin (tursiops)",
+    )
 
     sub_matrix_file = "./substitution_matrices/BLOSUM62.mat"
     gap_open = -10
@@ -33,12 +38,15 @@ def main():
         score, hs_aligned, species_aligned = nw.align((hs_seq, hs_header), seq)
         alignments.append((species, score))
 
-    alignments.sort(key=lambda align: align[1])
+    alignments.sort(key=lambda align: align[1], reverse=True)
 
+    print("Species from most to least similar:")
     for species, score in alignments:
-        print(species.rjust(10), score)
+        print(f"\t{species}")
 
-    # print(nw.align((hs_seq, gg_header), (hs_seq, gg_header)))
+    print("\nSpecies scores:")
+    for species, score in alignments:
+        print(f"\t{species.ljust(25)}| {score}")
 
     # TODO Align all species to humans and print species in order of most similar to human BRD
     # using gap opening penalty of -10 and a gap extension penalty of -1 and BLOSUM62 matrix

@@ -34,10 +34,8 @@ class NeedlemanWunsch:
         self._gapA_matrix = None
         self._gapB_matrix = None
 
-        # Init matrices for backtrace procedure
+        # Init matrices for backtrace procedure; I found it easier to use one matrix than three for whatever reason
         self._back = None
-        self._back_A = None
-        self._back_B = None
 
         # Init alignment_score
         self.alignment_score = 0
@@ -106,18 +104,23 @@ class NeedlemanWunsch:
                     res_2 += 1
                 elif start is True and res_2 == len(residue_list):
                     break
+
         return dict_sub
 
     def align(self, seqA: str, seqB: str) -> Tuple[float, str, str]:
         """
-        # TODO: Fill in the Needleman-Wunsch Algorithm below
-        to perform global sequence alignment of seqA and seqB
-        and return a tuple with the following format
-        (alignment score, seqA alignment, seqB alignment)
-        Also, write up a docstring for this function using the
-        _read_sub_matrix as an example.
-        Don't forget to comment your code!
+        Uses Needleman-Wunsch algorithm to produce a globally optimal alignment for the two sequences.
+        The gaps and scores for the first sequence will be encoded in the rows of align_matrix, gapA_matrix, and gapB_matrix.
+        Likewise the columns of the same matrices will encode the information for the second sequence (B).
+
+        Args:
+            seqA (str): First sequence that will be aligned.
+            seqB (str): Second sequence that will be aligned.
+
+        Returns:
+            Tuple[score: float, seqA_aligned: str, seqB_aligned: str]: score, alignment of sequence A, and alignment of sequence B
         """
+
         # Initialize 6 matrix private attributes for use in alignment
         # create matrices for alignment scores and gaps
 
@@ -130,8 +133,8 @@ class NeedlemanWunsch:
 
         # create matrices for pointers used in backtrace procedure
         self._back = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf
-        self._back_A = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf
-        self._back_B = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf
+        #        self._back_A = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf
+        #        self._back_B = np.ones((len(seqA) + 1, len(seqB) + 1)) * -np.inf
 
         # Resetting alignment in case method is called more than once
         self.seqA_align = ""
@@ -151,15 +154,15 @@ class NeedlemanWunsch:
         iscore = np.arange(len_seqB + 1) * self.gap_extend + self.gap_open
         jscore = np.arange(len_seqA + 1) * self.gap_extend + self.gap_open
 
-        # self._align_matrix[0, :] = iscore
-        # self._align_matrix[:, 0] = jscore
         self._align_matrix[0, 0] = 0
 
         self._gapA_matrix[0, :] = iscore
         self._gapB_matrix[:, 0] = jscore
 
-        self._back_B[0, :] = np.inf
-        self._back_A[:, 0] = np.inf
+        #        self._back_B[0, :] = np.inf
+        #        self._back_A[:, 0] = np.inf
+        self._back[0, :] = np.inf
+        self._back[:, 0] = np.inf
 
         for i in range(1, len_seqA + 1):
             for j in range(1, len_seqB + 1):
@@ -172,12 +175,21 @@ class NeedlemanWunsch:
 
         return self._backtrace()
 
-    def _update_gap(self, which, i, j):
-        if which == "b":
+    def _update_gap(self, which: str, i: int, j: int):
+        """
+        Update the given gap matrix (gapA or gapB)
+
+        Args:
+            which (str): string flag to update A or B gap matrix
+            i (int): row index
+            j (int): column index
+        """
+
+        if which == "b":  # if we're updating the B matrix, we use i-1 instead of i
             matrix = self._gapB_matrix
             gap = matrix[i - 1, j]
             align = self._align_matrix[i - 1, j]
-        else:
+        else:  # if we're updating the A matrix, we use j-1 instead of j
             matrix = self._gapA_matrix
             gap = matrix[i, j - 1]
             align = self._align_matrix[i, j - 1]
@@ -186,60 +198,73 @@ class NeedlemanWunsch:
             gap + self.gap_extend, align + self.gap_open + self.gap_extend
         )
 
-    def _update_align_matrix(self, i, j, score):
+    def _update_align_matrix(self, i: int, j: int, score: float):
+        """
+        Given the current i, j indices as type int, update the alignment matrix with the i-1, j-1 positions of the score, gapA, and gapB matrices.
+
+        Args:
+            i (int): row index
+            j (int): column index
+            score (float): replacement score from substitution matrix for i-1, j-1 entries in sequences.
+
+        """
+
+        # grab the i-1, j-1 vales in the three scoring/gap matrices
         m = self._align_matrix[i - 1, j - 1]
         iy = self._gapA_matrix[i - 1, j - 1]
         ix = self._gapB_matrix[i - 1, j - 1]
         neighbor_values = (m, ix, iy)
 
-        self._align_matrix[i, j] = max(neighbor_values) + score
-
         argmax = np.argmax(neighbor_values)
 
-    #        if argmax == 0:
-    #            self._back[i - 1, j - 1] = m
-    #        elif argmax == 1:
-    #            self._back_A[i - 1, j] = ix
-    #        else:
-    #            self._back_B[i, j - 1] = iy
+        self._align_matrix[i, j] = neighbor_values[argmax] + score
+
+        self._back[i, j] = argmax
 
     def _backtrace(self) -> Tuple[float, str, str]:
         """
-        # TODO Implement the traceback procedure method below
-        based on the heuristic you implement in the align method.
-        The traceback method should return a tuple of the alignment
-        score, the seqA alignment and the seqB alignment respectively.
+        Use the traceback matrix self._back to quickly recover the optimal score path.
+        For this we start at the last position (-1, -1) and read off the value at that site; we also initialize a variable to keep track of the current and previous positions.
+
+        From the current position value, we read off whether to move diagonally (value == 0), left (value == 1), or up (value == 2).
+        From the previous position value, we read off whether to  add the i-1, j-1 sequence position to both sequences (value == 0), gap in B (value == 1), or gap in A (value == 2)
         """
+
         seqA = self._seqA
         seqB = self._seqB
         j, i = len(seqB), len(seqA)
 
         alignment_score = self._align_matrix[-1, -1]
+        # variable initialization
         seqA_align = ""
         seqB_align = ""
 
-        while i > 0 or j > 0:
-            position_scores = [
-                matrix[i, j] for matrix in (self._back, self._back_A, self._back_B)
-            ]
-            argmax = np.argmax(position_scores)
+        # initialize state variables
+        prev_trace = self._back[i, j]
+        current_trace = self._back[i, j]
 
-            _i, _j = i, j
-            if argmax == 0:
+        while i > 0 or j > 0:  # keep going until we hit the end (given by 0, 0)
+            if prev_trace == 0:  # diagonal
                 seqA_align += seqA[i - 1]
                 seqB_align += seqB[j - 1]
-                i -= 1
-                j -= 1
-
-            elif argmax == 1:  # extend gap in B
+            elif prev_trace == 1:  # gap in B
                 seqA_align += seqA[i - 1]
                 seqB_align += "-"
-                i -= 1
-
-            elif argmax == 2:  # extend gap in A
+            elif prev_trace == 2:  # gap in A
                 seqA_align += "-"
                 seqB_align += seqB[j - 1]
+
+            if current_trace == 0:  # update next position diagonally
+                i -= 1
                 j -= 1
+            elif current_trace == 1:  # update next position left
+                i -= 1
+            elif current_trace == 2:  # update next position up
+                j -= 1
+
+            # update state variables
+            prev_trace = current_trace
+            current_trace = self._back[i, j]
 
         seqA_align = seqA_align[::-1]
         seqB_align = seqB_align[::-1]
