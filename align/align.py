@@ -220,7 +220,7 @@ class NeedlemanWunsch:
 
         argmax = np.argmax(
             neighbor_values
-        )  # whether to take the match or gap (gap is !0)
+        )  # whether to take the match or gap (gap is != 0)
 
         self._align_matrix[i, j] = neighbor_values[argmax] + score
 

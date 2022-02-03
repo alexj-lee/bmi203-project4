@@ -38,12 +38,7 @@ def test_nw_alignment(substitution_matrix_path):
     assert (np.isinf(nw._align_matrix[1:, 0]).sum() == len_seq1) and (np.isinf(nw._gapA_matrix[1:, 0]).sum() == len_seq1), "First row of align and gapA matrix must be infs with same length as seq2"
     # fmt: on
 
-    # for this part of the test we will randomly sample half the matrix values and then test whether the assignment was correct following the rules for M, Ix, and Iy
-    num_positions_to_sample = (len_seq1 * len_seq2) // 2
-    random_j_inds = np.random.randint(1, len(seq2), size=num_positions_to_sample)
-    random_i_inds = np.random.randint(1, len(seq1), size=num_positions_to_sample)
-
-    for i, j in zip(random_i_inds, random_j_inds):
+    for i, j in zip(range(1, len(seq1) + 1), range(1, len(seq2) + 1)):
         assert (
             nw._align_matrix[i, j]
             == max(
@@ -75,17 +70,22 @@ def test_nw_backtrace(substitution_matrix_path):
     seq4, _ = read_fasta("./data/test_seq4.fa")
 
     nw = NeedlemanWunsch(substitution_matrix_path, -10, -1)
-    out = nw.align((seq3, _), (seq4, _))
+    score, aligned_seq3, aligned_seq4 = nw.align((seq3, _), (seq4, _))
+
+    assert len(aligned_seq3) == len(aligned_seq4), "Alignment must be same length"
+    assert (
+        aligned_seq3 == "MAVHQLIRRP"
+    ), "The alignment for sequence 3 (test_seq3.fa) is wrong."
+    assert (
+        aligned_seq4 == "M---QLIRHP"
+    ), "The alignment for sequence 4 (test_seq4.fa) is wrong."
+    assert score == 17.0, "The alignment score is wrong."
 
     len_seq3 = len(seq3)
     len_seq4 = len(seq4)
 
-    num_positions_to_sample = (len_seq3 * len_seq4) // 2
-
-    random_j_inds = np.random.randint(1, len(seq4), size=num_positions_to_sample)
-    random_i_inds = np.random.randint(1, len(seq3), size=num_positions_to_sample)
-
-    for i, j in zip(random_i_inds, random_j_inds):
+    # for this we'll sample the matrix positions and just see if they are right
+    for i, j in zip(range(1, len(seq3) + 1), range(1, len(seq4) + 1)):
         assert nw._back[i, j] == np.argmax(
             (
                 nw._align_matrix[i - 1, j - 1],
@@ -94,6 +94,12 @@ def test_nw_backtrace(substitution_matrix_path):
             )
         )
 
-    assert np.unique(nw._back).size <= 4  # only inf,, 0, 1, 2 values
-    assert np.isinf(nw._back[0, :]).sum() == len_seq4 + 1
-    assert np.isinf(nw._back[:, 0]).sum() == len_seq3 + 1
+    assert (
+        np.unique(nw._back).size <= 4
+    ), "Wrong number of possible values in _back matrix: should only be inf, 0, 1, and 2."  # only inf,, 0, 1, 2 values
+    assert (
+        np.isinf(nw._back[0, :]).sum() == len_seq4 + 1
+    ), "All entries in first row of _back matrix should be np.inf."
+    assert (
+        np.isinf(nw._back[:, 0]).sum() == len_seq3 + 1
+    ), "All entries in first col of _back matrix should be np.inf"
